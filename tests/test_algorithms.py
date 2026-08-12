@@ -53,6 +53,16 @@ class SortAlgorithmTests(unittest.TestCase):
         self.assertEqual([record[1] for record in result], [1, 1, 2, 2, 3])
         self.assertEqual(records[0], ("c", 3))
 
+    def test_quick_sort_limits_recursion_for_unbalanced_partitions(self) -> None:
+        # 이 형태는 median-of-three 퀵 정렬에 불균형한 파티션을 반복해서 만들 수
+        # 있습니다. 큰 파티션까지 재귀 호출하면 Python 재귀 한도를 넘습니다.
+        values = list(range(1, 5001)) + list(range(5000, 0, -1))
+        expected = [value for value in range(1, 5001) for _ in range(2)]
+
+        result = quick_sort(values)
+
+        self.assertEqual(result, expected)
+
     def test_both_algorithms_accept_empty_and_single_value_lists(self) -> None:
         self.assertEqual(merge_sort([]), [])
         self.assertEqual(quick_sort([]), [])
@@ -105,6 +115,28 @@ class GraphAlgorithmTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cycle"):
             topological_sort({first.hash: first, second.hash: second})
 
+    def test_topological_sort_handles_many_ready_commits_in_key_order(self) -> None:
+        root = make_commit("000000", timestamp="2024-01-01 09:00:00")
+        children = [
+            make_commit(
+                f"{number:06x}",
+                timestamp="2024-01-01 09:01:00",
+                parents=(root.hash,),
+            )
+            for number in range(1, 2001)
+        ]
+        # 일부러 역순으로 넣어 dict 삽입 순서가 결과를 좌우하지 않는지 확인합니다.
+        commits = {root.hash: root}
+        for child in reversed(children):
+            commits[child.hash] = child
+
+        result = topological_sort(commits)
+
+        self.assertEqual(
+            [commit.hash for commit in result],
+            [root.hash] + [child.hash for child in children],
+        )
+
     def test_shortest_path_uses_lexicographically_smallest_tie(self) -> None:
         # 111111 -> aaaaaa -> eeeeee와
         # 111111 -> dddddd -> eeeeee는 길이가 같습니다.
@@ -118,6 +150,41 @@ class GraphAlgorithmTests(unittest.TestCase):
             ["111111"],
         )
         self.assertIsNone(find_shortest_path(self.commits, "111111", "ffffff"))
+
+    def test_shortest_path_uses_full_path_order_in_both_directions(self) -> None:
+        start = make_commit("111111")
+        first_left = make_commit("100000", parents=(start.hash,))
+        first_right = make_commit("200000", parents=(start.hash,))
+        second_left = make_commit("ffffff", parents=(first_left.hash,))
+        second_right = make_commit("000001", parents=(first_right.hash,))
+        shared = make_commit(
+            "aaaaaa", parents=(second_left.hash, second_right.hash)
+        )
+        target = make_commit("eeeeee", parents=(shared.hash,))
+        commits = {
+            commit.hash: commit
+            for commit in (
+                target,
+                shared,
+                second_right,
+                second_left,
+                first_right,
+                first_left,
+                start,
+            )
+        }
+
+        forward = find_shortest_path(commits, start.hash, target.hash)
+        backward = find_shortest_path(commits, target.hash, start.hash)
+
+        self.assertEqual(
+            forward,
+            ["111111", "100000", "ffffff", "aaaaaa", "eeeeee"],
+        )
+        self.assertEqual(
+            backward,
+            ["eeeeee", "aaaaaa", "000001", "200000", "111111"],
+        )
 
     def test_find_ancestors_returns_every_parent_without_self(self) -> None:
         result = find_ancestors(self.commits, "eeeeee")

@@ -85,34 +85,44 @@ def quick_sort(items: Sequence[T], key: KeyFunction[T] | None = None) -> list[T]
 def _quick_sort_range(
     values: list[T], low: int, high: int, key: KeyFunction[T]
 ) -> None:
-    """``low``부터 ``high``까지를 제자리에서 퀵 정렬합니다."""
+    """``low``부터 ``high``까지 정렬하며 재귀 호출 깊이를 제한합니다.
 
-    if low >= high:
-        return
+    두 파티션을 모두 재귀 호출하면 매우 불균형한 입력에서 Python의 재귀 한도를
+    넘을 수 있습니다. 작은 파티션만 재귀로 처리하고 큰 파티션은 while 문으로
+    계속 처리하면 호출 스택은 최악의 경우에도 O(log N) 크기로 제한됩니다.
+    """
 
-    pivot_index = _median_of_three_index(values, low, high, key)
-    pivot_key = key(values[pivot_index])
+    while low < high:
+        pivot_index = _median_of_three_index(values, low, high, key)
+        pivot_key = key(values[pivot_index])
 
-    # [low, smaller)는 피벗보다 작은 구역, (larger, high]는 큰 구역입니다.
-    # cursor가 가운데를 훑으며 각 값을 맞는 구역으로 이동시킵니다.
-    smaller = low
-    cursor = low
-    larger = high
+        # [low, smaller)는 피벗보다 작은 구역, (larger, high]는 큰 구역입니다.
+        # cursor가 가운데를 훑으며 각 값을 맞는 구역으로 이동시킵니다.
+        smaller = low
+        cursor = low
+        larger = high
 
-    while cursor <= larger:
-        current_key = key(values[cursor])
-        if current_key < pivot_key:
-            values[smaller], values[cursor] = values[cursor], values[smaller]
-            smaller += 1
-            cursor += 1
-        elif pivot_key < current_key:
-            values[cursor], values[larger] = values[larger], values[cursor]
-            larger -= 1
+        while cursor <= larger:
+            current_key = key(values[cursor])
+            if current_key < pivot_key:
+                values[smaller], values[cursor] = values[cursor], values[smaller]
+                smaller += 1
+                cursor += 1
+            elif pivot_key < current_key:
+                values[cursor], values[larger] = values[larger], values[cursor]
+                larger -= 1
+            else:
+                cursor += 1
+
+        left_size = smaller - low
+        right_size = high - larger
+
+        if left_size < right_size:
+            _quick_sort_range(values, low, smaller - 1, key)
+            low = larger + 1
         else:
-            cursor += 1
-
-    _quick_sort_range(values, low, smaller - 1, key)
-    _quick_sort_range(values, larger + 1, high, key)
+            _quick_sort_range(values, larger + 1, high, key)
+            high = smaller - 1
 
 
 def _median_of_three_index(

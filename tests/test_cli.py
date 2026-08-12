@@ -5,10 +5,12 @@ from __future__ import annotations
 import subprocess
 import sys
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from minigit.models import Commit
 from minigit.parser import CommandProcessor
+from minigit.repository import Repository
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -92,6 +94,37 @@ class CommandProcessorTests(unittest.TestCase):
             "Invalid args",
         )
 
+    def test_log_contains_every_required_commit_field(self) -> None:
+        repository = Repository(clock=lambda: datetime(2024, 1, 15, 9, 0, 0))
+        processor = CommandProcessor(repository)
+        processor.execute('init "Alice Kim"')
+        processor.execute('commit "Initial commit"')
+        commit_hash = repository.head_hash
+        assert commit_hash is not None
+        commit = repository.commits[commit_hash]
+
+        output = processor.execute("log").output
+
+        self.assertIn(commit.hash, output)
+        self.assertIn(commit.author, output)
+        self.assertIn(commit.timestamp, output)
+        self.assertIn(commit.message, output)
+
+    def test_search_accepts_keyword_that_starts_with_dashes(self) -> None:
+        self.processor.execute("init Alice")
+        self.processor.execute('commit "--fix parser"')
+        commit_hash = self.processor.repository.head_hash
+        assert commit_hash is not None
+
+        output = self.processor.execute('search "--fix"').output
+
+        self.assertIn("Found 1 commit:", output)
+        self.assertIn(f"- {commit_hash}: --fix parser", output)
+        self.assertEqual(
+            self.processor.execute("search --author").output,
+            "Invalid args",
+        )
+
     def test_no_results_and_root_ancestors_have_clear_output(self) -> None:
         self.processor.execute("init Alice")
         self.processor.execute('commit "Initial"')
@@ -138,6 +171,7 @@ class ReplIntegrationTests(unittest.TestCase):
             capture_output=True,
             cwd=PROJECT_ROOT,
             check=False,
+            timeout=10,
         )
 
         self.assertEqual(completed.returncode, 0, completed.stderr)

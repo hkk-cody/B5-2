@@ -169,9 +169,11 @@ class CommandProcessor:
             if not author.strip():
                 return CommandResult("Invalid args")
             commits = self.repository.search_author(author)
-        elif argument.startswith("--"):
+        elif lower_argument == "--author":
+            # --author 옵션과 비슷하지만 '=' 형식을 지키지 않은 입력입니다.
             return CommandResult("Invalid args")
         else:
+            # --fix처럼 '--'로 시작하는 문자열도 일반 커밋 키워드일 수 있습니다.
             commits = self.repository.search_keyword(argument)
 
         return CommandResult(self._format_search_results(commits))
