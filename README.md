@@ -21,6 +21,9 @@ python main.py
 
 ## 처음 코드를 읽는다면
 
+[실습형 학습 노트](docs/STUDY_WORKBOOK.md)에서 단계별 학습 순서, 실행 가능한
+예제, 예상 결과와 해설을 따라가세요. 최신 검색 문법과 성능 개선 원리도 다룹니다.
+
 [Mini Git 초보자용 코드 분석 가이드](docs/CODE_ANALYSIS_GUIDE.md)에서 이
 프로젝트에 사용된 Python 문법, 파일별 책임, 명령 실행 흐름, 상태 변화,
 알고리즘과 테스트 분석 방법을 실제 코드와 함께 설명합니다.
@@ -75,6 +78,10 @@ Found 1 commit:
 예시 해시는 실행 시각과 커밋 정보에 따라 달라집니다. 여러 단어를 검색하면
 모든 단어를 포함한 커밋만 반환합니다. 예를 들어 `SEARCH "login feature"`는
 `login`과 `feature`가 모두 있는 메시지를 찾습니다.
+
+옵션처럼 생긴 단어는 `SEARCH -- "--author"` 또는
+`SEARCH -- "--author=Bob"`처럼 `--` 뒤에 입력하면 메시지에서 검색합니다.
+`SEARCH --author=Bob`은 기존처럼 작성자 검색입니다.
 
 ## 프로젝트 구조
 
@@ -149,6 +156,10 @@ alice -> {a1b2c3}
 | --- | --- | --- | --- | --- |
 | Merge Sort | O(N log N) | O(N log N) | O(N) | 예 |
 | Quick Sort | O(N log N) | O(N²) | O(N) 복사본 + O(log N) 호출 스택 | 아니요 |
+
+날짜 정렬은 `(timestamp, hash)`, 작성자 정렬은
+`(author.lower(), timestamp, hash)` 순서로 비교합니다. 날짜나 작성자가 같아도
+추가 비교 기준에 따라 순서가 달라질 수 있습니다.
 
 LOG의 날짜·작성자 정렬에는 결과가 예측 가능하고 안정적인 Merge Sort를
 사용합니다. Quick Sort는 첫 값, 가운데 값, 마지막 값 중 중간값을 피벗으로

@@ -186,6 +186,15 @@ class Repository:
         hashes = self.index.search_author(author)
         return self._commits_in_date_order(hashes)
 
+    def branches_by_commit(self) -> dict[str, list[str]]:
+        """전체 브랜치를 한 번 순회해 로그 표시용 해시별 이름 목록을 만듭니다."""
+
+        grouped: dict[str, list[str]] = {}
+        for branch_name, commit_hash in self.branches.items():
+            if commit_hash is not None:
+                grouped.setdefault(commit_hash, []).append(branch_name)
+        return {commit_hash: merge_sort(names) for commit_hash, names in grouped.items()}
+
     def branches_for_commit(self, commit_hash: str) -> list[str]:
         """현재 해당 커밋을 직접 가리키는 브랜치 이름을 반환합니다."""
 

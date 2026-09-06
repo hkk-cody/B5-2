@@ -131,7 +131,11 @@ class CommandProcessor:
         if not commits:
             return CommandResult("No commits")
 
-        blocks = [self._format_log_commit(commit) for commit in commits]
+        branches_by_commit = self.repository.branches_by_commit()
+        blocks = [
+            self._format_log_commit(commit, branches_by_commit.get(commit.hash, []))
+            for commit in commits
+        ]
         return CommandResult("\n\n".join(blocks))
 
     def _handle_path(self, args: list[str]) -> CommandResult:
@@ -157,6 +161,13 @@ class CommandProcessor:
         return CommandResult("\n".join(lines))
 
     def _handle_search(self, args: list[str]) -> CommandResult:
+        # '--' 뒤의 인자는 옵션처럼 보여도 메시지 검색어로 처리합니다.
+        if args and args[0] == "--":
+            if not self._has_one_nonempty_arg(args[1:]):
+                return CommandResult("Invalid args")
+            commits = self.repository.search_keyword(args[1])
+            return CommandResult(self._format_search_results(commits))
+
         if not self._has_one_nonempty_arg(args):
             return CommandResult("Invalid args")
 
@@ -178,10 +189,10 @@ class CommandProcessor:
 
         return CommandResult(self._format_search_results(commits))
 
-    def _format_log_commit(self, commit: Commit) -> str:
+    @staticmethod
+    def _format_log_commit(commit: Commit, branch_names: list[str]) -> str:
         """로그에 필요한 해시, 작성자, 시각, 메시지를 읽기 좋게 만듭니다."""
 
-        branch_names = self.repository.branches_for_commit(commit.hash)
         branch_label = ""
         if branch_names:
             branch_label = f" [{', '.join(branch_names)}]"

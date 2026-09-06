@@ -48,11 +48,20 @@ class InvertedIndex:
         if not tokens:
             return set()
 
-        first_matches = self.keyword_index.get(tokens[0], set())
-        matches = set(first_matches)
+        # 없는 단어는 즉시 종료하고, 가장 작은 후보 집합만 복사합니다.
+        candidates: list[set[str]] = []
+        for token in set(tokens):
+            candidate = self.keyword_index.get(token)
+            if not candidate:
+                return set()
+            candidates.append(candidate)
 
-        for token in tokens[1:]:
-            matches.intersection_update(self.keyword_index.get(token, set()))
+        smallest = min(candidates, key=len)
+        matches = set(smallest)
+        for candidate in candidates:
+            if candidate is smallest:
+                continue
+            matches.intersection_update(candidate)
             if not matches:
                 break
 

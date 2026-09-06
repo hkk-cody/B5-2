@@ -6,6 +6,7 @@ import re
 import unittest
 from dataclasses import FrozenInstanceError
 from datetime import datetime
+from unittest.mock import patch
 
 from minigit.models import Commit
 from minigit.repository import Repository, RepositoryError
@@ -26,6 +27,25 @@ class SequenceClock:
 
 
 class RepositoryTests(unittest.TestCase):
+    def test_hash_collision_retries_without_overwriting_existing_commit(self) -> None:
+        repository = Repository()
+        repository.initialize("Alice")
+        with patch("minigit.repository.hashlib.sha1") as sha1:
+            sha1.return_value.hexdigest.side_effect = [
+                "aaaaaa" + "0" * 34,
+                "aaaaaa" + "1" * 34,
+                "bbbbbb" + "0" * 34,
+            ]
+            first = repository.create_commit("first")
+            second = repository.create_commit("second")
+        self.assertEqual(len(repository.commits), 2)
+        self.assertEqual(repository.get_commit(first.hash), first)
+        self.assertEqual(second.hash, "bbbbbb")
+        self.assertEqual(second.parents, (first.hash,))
+        self.assertEqual(repository.head_hash, second.hash)
+        self.assertEqual(repository.search_keyword("first"), [first])
+        self.assertEqual(repository.search_keyword("second"), [second])
+
     def test_commands_require_initialization(self) -> None:
         repository = Repository()
 

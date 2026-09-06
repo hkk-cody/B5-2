@@ -137,6 +137,34 @@ class CommandProcessorTests(unittest.TestCase):
             "No ancestors",
         )
 
+    def test_search_option_terminator_searches_literal_keywords(self) -> None:
+        self.processor.execute("init Alice")
+        self.processor.execute('commit "Fix --author flag and --author=Bob parsing"')
+        for keyword in ("--author", "--author=Bob"):
+            with self.subTest(keyword=keyword):
+                output = self.processor.execute(f'search -- "{keyword}"').output
+                self.assertIn("Found 1 commit:", output)
+        self.assertEqual(
+            self.processor.execute("search --author=Bob").output, "Found 0 commits."
+        )
+        for command in ('search --', 'search -- ""', 'search -- " "', 'search -- a b'):
+            with self.subTest(command=command):
+                self.assertEqual(self.processor.execute(command).output, "Invalid args")
+
+    def test_log_branch_labels_follow_branch_heads(self) -> None:
+        self.processor.execute("init Alice")
+        self.processor.execute("commit root")
+        for name in ("zeta", "alpha"):
+            self.processor.execute(f"branch {name}")
+        self.assertIn("[alpha, main, zeta]", self.processor.execute("log").output)
+        self.processor.execute("switch alpha")
+        self.processor.execute("commit child")
+        for command in ("log", "log --sort-by=date", "log --sort-by=author"):
+            with self.subTest(command=command):
+                output = self.processor.execute(command).output
+                self.assertIn("[main, zeta]\nroot", output)
+                self.assertIn("[alpha]\nchild", output)
+
     def test_no_path_is_reported_for_disconnected_commits(self) -> None:
         self.processor.execute("init Alice")
         first = Commit("aaaaaa", "first", "Alice", "2024-01-01 09:00:00", ())

@@ -194,6 +194,17 @@ class GraphAlgorithmTests(unittest.TestCase):
 
 
 class InvertedIndexTests(unittest.TestCase):
+    def test_intersection_preserves_index_and_ignores_query_order(self) -> None:
+        index = InvertedIndex()
+        index.add(make_commit("aaaaaa", message="common rare"))
+        index.add(make_commit("bbbbbb", message="common"))
+        for query in ("common rare", "rare common", "common common rare"):
+            self.assertEqual(index.search_keywords(query), {"aaaaaa"})
+        self.assertEqual(index.search_keywords("common missing"), set())
+        matches = index.search_keywords("common")
+        matches.clear()
+        self.assertEqual(index.search_keywords("common"), {"aaaaaa", "bbbbbb"})
+
     def test_keyword_and_author_indexes_are_case_insensitive(self) -> None:
         index = InvertedIndex()
         commit = make_commit(

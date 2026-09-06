@@ -25,11 +25,11 @@
 | `message` | `str` | 커밋 메시지 (공백 포함 가능) |
 | `author` | `str` | 작성자 이름 |
 | `timestamp` | `str` | 커밋 생성 시각 (형식: `YYYY-MM-DD HH:MM:SS`) |
-| `parents` | `list[str]` | 부모 커밋 해시 목록 (`0개`: 최초 커밋, `1개`: 일반 커밋, `2개`: 병합 커밋) |
+| `parents` | `tuple[str, ...]` | 부모 커밋 해시 목록 (`0개`: 최초 커밋, `1개`: 일반 커밋, `2개`: 병합 커밋) |
 
 ### 2.2 저장소 및 브랜치 관리 (`Repository`)
 - **`commits`**: `dict[str, Commit]` - 커밋 해시를 키로 하는 커밋 노드 저장소.
-- **`branches`**: `dict[str, str]` - 브랜치 이름을 키로 하고, 해당 브랜치가 가리키는 커밋 해시를 값으로 갖는 해시맵.
+- **`branches`**: `dict[str, str | None]` - 브랜치 이름을 키로 하고, 해당 브랜치가 가리키는 커밋 해시를 값으로 갖는 해시맵.
 - **`head_branch`**: `str` - 현재 활성화된 브랜치 이름 (기본값: `main`).
 - **`current_user`**: `str` - 현재 활성화된 작성자 이름.
 
@@ -51,6 +51,7 @@
 - **대소문자 미구분**: 입력된 명령어 키워드는 대소문자를 구분하지 않음 (`init`, `INIT`, `Init` 모두 동등 처리).
 - **공백 및 따옴표 처리**: 큰따옴표(`"..."`)로 감싸진 문자열은 하나의 인자로 파싱 (`shlex.split` 방식 구현).
 - **옵션 형식**: `--author=<name>`, `--sort-by=date|author` 형태 파싱.
+- **옵션 종료**: `SEARCH -- "--author=Bob"`처럼 `--` 뒤의 인자 하나는 옵션이 아닌 메시지 검색어로 처리.
 
 ### 3.2 에러 메시지 표준
 - 잘못된 인자 개수/형식: `Invalid args`
@@ -96,7 +97,7 @@
 - **구현 정렬 알고리즘**:
   1. **Merge Sort (병합 정렬)**:
      - 복잡도: $O(N \log N)$ (최악/평균/최선)
-     - 특징: **안정 정렬(Stable Sort)** 특성을 유지하여 날짜 및 작성자 기준 정렬 시 기존 순서 보장.
+     - 특징: **안정 정렬(Stable Sort)**로 비교 키 전체가 같은 원소의 기존 순서를 보장. 날짜 정렬 키는 `(timestamp, hash)`, 작성자 정렬 키는 `(author.lower(), timestamp, hash)`이므로 날짜나 작성자만 같으면 추가 키로 순서를 결정.
   2. **Quick Sort (퀵 정렬)**:
      - 복잡도: 평균 $O(N \log N)$, 최악 $O(N^2)$
      - 특징: 피벗 선택 전략(Median-of-three)을 적용하여 정렬 수행.
@@ -143,7 +144,7 @@
 
 ## 7. 결과 예시 동기화
 
-실행 인터랙션 예시는 [subject.md](file:///Users/hankkim/Desktop/codyssey/B3-2/subject.md)의 8번 결과 예시 표준 서식을 완벽하게 준수합니다.
+실행 인터랙션 예시는 [subject.md](subject.md)의 8번 결과 예시 표준 서식을 완벽하게 준수합니다.
 
 ```text
 mini-git> init "Alice"
