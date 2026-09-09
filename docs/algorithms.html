@@ -1,0 +1,1032 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Mini Git · 알고리즘 실험실</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #17293e;
+        --muted: #526579;
+        --blue: #145cdb;
+        --line: #dbe4ed;
+        --paper: #f3f6fa;
+        --green: #087b62;
+        --orange: #b85a09;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          16px/1.7 system-ui,
+          -apple-system,
+          "Apple SD Gothic Neo",
+          sans-serif;
+      }
+      header {
+        padding: 24px max(24px, calc((100vw - 1240px) / 2));
+        background: #12283e;
+        color: white;
+      }
+      header small {
+        color: #96c8ff;
+        letter-spacing: 0.13em;
+      }
+      h1 {
+        font-size: 28px;
+        margin: 4px 0;
+      }
+      header p {
+        margin: 0;
+        color: #cedce9;
+      }
+      main {
+        max-width: 1288px;
+        margin: auto;
+        padding: 26px 24px;
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        gap: 26px;
+      }
+      nav {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        align-self: start;
+        position: sticky;
+        top: 20px;
+      }
+      button,
+      select {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+        border: 1px solid var(--line);
+        background: white;
+        border-radius: 9px;
+        padding: 9px 15px;
+        color: var(--ink);
+      }
+      button:hover {
+        border-color: var(--blue);
+      }
+      button:focus-visible,
+      select:focus-visible {
+        outline: 3px solid #eea928;
+        outline-offset: 3px;
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      nav button {
+        text-align: left;
+        border-color: transparent;
+        background: transparent;
+      }
+      nav button.active {
+        background: var(--blue);
+        color: white;
+      }
+      nav small {
+        padding: 15px 10px;
+        color: var(--muted);
+      }
+      .panel {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 26px;
+        margin-bottom: 20px;
+      }
+      h2 {
+        font-size: 26px;
+        margin: 0 0 8px;
+      }
+      h3 {
+        font-size: 18px;
+        margin: 0 0 10px;
+      }
+      p {
+        margin: 8px 0 15px;
+      }
+      .tag {
+        color: var(--blue);
+        font: 600 14px/1.5 system-ui;
+      }
+      .meta {
+        color: var(--muted);
+      }
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 16px 0;
+      }
+      .primary {
+        background: var(--blue);
+        color: white;
+        border-color: var(--blue);
+      }
+      .counter {
+        margin-left: auto;
+        font-variant-numeric: tabular-nums;
+      }
+      .canvas {
+        background: #f7faff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 18px;
+        min-height: 280px;
+        overflow: auto;
+      }
+      svg {
+        display: block;
+        width: 100%;
+        min-width: 430px;
+        max-height: 310px;
+      }
+      svg text {
+        font-family: system-ui;
+        fill: var(--ink);
+      }
+      .note {
+        border-left: 4px solid var(--blue);
+        padding: 12px 16px;
+        background: #edf4ff;
+        margin-top: 16px;
+        min-height: 80px;
+      }
+      .rows {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .row strong {
+        min-width: 112px;
+        font-size: 14px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        padding: 6px 10px;
+        border: 1px solid #c6d5e5;
+        border-radius: 7px;
+        background: white;
+        font-family: ui-monospace, monospace;
+      }
+      .hot {
+        background: #ffe6bd;
+        border-color: #db961e;
+      }
+      .done {
+        background: #d5f4e9;
+        border-color: #39a88b;
+      }
+      .legend {
+        font-size: 14px;
+        color: var(--muted);
+        margin: 12px 0 0;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      .grid .panel {
+        margin: 0;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #12283e;
+        color: #e1eeff;
+        padding: 16px;
+        border-radius: 9px;
+        font:
+          14px/1.8 ui-monospace,
+          monospace;
+      }
+      a {
+        color: var(--blue);
+      }
+      .barlist {
+        display: flex;
+        align-items: end;
+        gap: 9px;
+        height: 180px;
+        padding-top: 20px;
+      }
+      .bar {
+        flex: 1;
+        max-width: 80px;
+        background: #c9dcfa;
+        border-radius: 7px 7px 0 0;
+        text-align: center;
+        min-width: 30px;
+        color: #163a6c;
+      }
+      .bar.hot {
+        background: #ffc976;
+      }
+      .bar.done {
+        background: #93ddc5;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 8px;
+        border-bottom: 1px solid var(--line);
+      }
+      footer {
+        max-width: 1240px;
+        margin: 12px auto 30px;
+        padding: 0 24px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      @media (max-width: 800px) {
+        main {
+          display: block;
+          padding: 16px;
+        }
+        nav {
+          position: static;
+          flex-direction: row;
+          overflow: auto;
+          margin-bottom: 16px;
+        }
+        nav button {
+          white-space: nowrap;
+        }
+        nav small {
+          display: none;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .panel {
+          padding: 18px;
+        }
+        h1 {
+          font-size: 24px;
+        }
+        .counter {
+          margin-left: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <small>MINI GIT / LEARNING LAB</small>
+      <h1>알고리즘을 한 단계씩 따라가기</h1>
+      <p>커밋이 연결되고, 정렬되고, 검색되는 과정을 직접 살펴보세요.</p>
+    </header>
+    <main>
+      <nav aria-label="알고리즘 선택" id="nav"></nav>
+      <article>
+        <section class="panel">
+          <span class="tag" id="usage"></span>
+          <h2 id="title"></h2>
+          <p id="intro"></p>
+          <div class="controls">
+            <button id="prev">← 이전</button
+            ><button id="play" class="primary">자동 재생</button
+            ><button id="next">다음 →</button
+            ><button id="reset">처음부터</button
+            ><label
+              >속도
+              <select id="speed">
+                <option value="1600">느리게</option>
+                <option value="950" selected>보통</option>
+                <option value="450">빠르게</option>
+              </select></label
+            ><span class="counter" id="counter"></span>
+          </div>
+          <div class="canvas" id="canvas"></div>
+          <p class="legend" id="legend"></p>
+          <div class="note" id="note" aria-live="polite"></div>
+          <div class="rows" id="state"></div>
+        </section>
+        <div class="grid">
+          <section class="panel">
+            <h3>왜 이렇게 동작할까?</h3>
+            <div id="explanation"></div>
+          </section>
+          <section class="panel">
+            <h3>프로젝트 코드와 연결하기</h3>
+            <div id="code"></div>
+          </section>
+        </div>
+        <section class="panel" style="margin-top: 20px">
+          <h3>성능을 읽는 방법</h3>
+          <p id="cost"></p>
+          <p class="meta">
+            V = 커밋 수, E = 부모·자식 연결 수, N = 정렬할 항목 수. O(…)는
+            데이터가 늘어날 때 작업량이 얼마나 커지는지 나타냅니다. 평균 O(1)은
+            보통 데이터 수에 비례해서 느려지지 않는다는 뜻입니다.
+          </p>
+        </section>
+      </article>
+    </main>
+    <footer>
+      실제 Python 구현을 바탕으로 만든 교육용 JavaScript 시뮬레이션입니다. A~F는
+      40자리 전체 커밋 해시를 설명용으로 줄인 이름이며 A &lt; B &lt; C &lt; D &lt; E &lt; F로
+      가정합니다. 집합 순회 순서는 이해를 위해 고정했습니다. Python의 set 순회
+      순서와는 다를 수 있습니다.
+    </footer>
+    <script>
+      const $ = (id) => document.getElementById(id),
+        esc = (s) =>
+          String(s).replace(
+            /[&<>"']/g,
+            (c) =>
+              ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;",
+              })[c],
+          );
+      const nodes = ["A", "B", "C", "D", "E", "F"],
+        parents = {
+          A: [],
+          B: ["A"],
+          C: ["A"],
+          D: ["B"],
+          E: ["C"],
+          F: ["D", "E"],
+        },
+        edges = nodes.flatMap((n) => parents[n].map((p) => [p, n]));
+      const pos = {
+        A: [55, 140],
+        B: [200, 65],
+        C: [200, 215],
+        D: [345, 65],
+        E: [345, 215],
+        F: [490, 140],
+      };
+      function chips(xs, cls = "") {
+        return xs.length
+          ? xs.map((x) => `<span class="chip ${cls}">${esc(x)}</span>`).join("")
+          : '<span class="meta">없음</span>';
+      }
+      function row(label, xs, cls = "") {
+        return `<div class="row"><strong>${esc(label)}</strong>${chips(xs, cls)}</div>`;
+      }
+      function graph(s) {
+        return `<svg viewBox="0 0 550 280" role="img" aria-label="A에서 두 갈래로 분기하고 F에서 병합되는 커밋 그래프"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#9badc0"/></marker></defs>${edges
+          .map(([a, b]) => {
+            if (s.reverse) [a, b] = [b, a];
+            let [x, y] = pos[a],
+              [u, v] = pos[b],
+              d = Math.hypot(u - x, v - y),
+              dx = (u - x) / d,
+              dy = (v - y) / d;
+            return `<line x1="${x + 25 * dx}" y1="${y + 25 * dy}" x2="${u - 29 * dx}" y2="${v - 29 * dy}" stroke="#9badc0" stroke-width="2" ${s.undirected ? "" : 'marker-end="url(#arrow)"'}/>`;
+          })
+          .join(
+            "",
+          )}${nodes.map((n) => `<g><circle cx="${pos[n][0]}" cy="${pos[n][1]}" r="24" fill="${s.current === n ? "#ffc976" : (s.done || []).includes(n) ? "#93ddc5" : "#fff"}" stroke="#55718d" stroke-width="2"/><text x="${pos[n][0]}" y="${pos[n][1] + 6}" text-anchor="middle" font-size="18">${n}</text><text x="${pos[n][0]}" y="${pos[n][1] + 46}" text-anchor="middle" font-size="14">${esc(s.labels?.[n] ?? "")}</text></g>`).join("")}</svg>`;
+      }
+      const lessons = [
+        {
+          id: "topo",
+          name: "01　위상 정렬",
+          title: "부모를 먼저, 자식을 나중에",
+          usage: "LOG · Kahn 알고리즘",
+          intro:
+            "병합 커밋 F는 D와 E가 모두 출력된 뒤에 등장해야 합니다. 아직 처리되지 않은 부모 수를 세어 순서를 만듭니다.",
+          explain:
+            "<p>진입 차수는 “아직 기다려야 하는 부모 수”입니다. 0인 커밋만 출력 후보가 됩니다. 하나를 출력하면 그 자식의 진입 차수를 1씩 줄입니다.</p><p>F는 부모가 둘이므로 처음에는 2입니다. D만 끝나면 1, E도 끝나야 0이 됩니다. 후보가 여러 개면 최소 힙으로 생성 시각이 빠른 커밋을 선택합니다.</p><p>예제에서는 생성 시각도 A → F 순서입니다. 그래프에 순환이 있으면 모든 노드를 출력할 수 없어 오류를 냅니다.</p>",
+          file: "graph.py",
+          fn: "topological_sort",
+          code: "ready = 진입 차수가 0인 커밋의 최소 힙\nwhile ready:\n    current = 가장 이른 후보 꺼내기\n    result.append(current)\n    각 자식의 진입 차수 -= 1\n    0이 된 자식을 ready에 추가",
+          cost: "현재 구현: O(E + V log V). 후보를 최소 힙에 넣고 꺼내므로 일반적인 큐 기반 Kahn 알고리즘의 O(V + E)에 힙 처리 비용이 추가됩니다. 공간 O(V + E).",
+          build() {
+            let d = Object.fromEntries(
+                nodes.map((n) => [n, parents[n].length]),
+              ),
+              q = ["A"],
+              out = [],
+              ss = [];
+            let snap = (note, current) =>
+              ss.push({
+                note,
+                current,
+                done: [...out],
+                labels: Object.fromEntries(
+                  nodes.map((n) => [n, "대기 부모 " + d[n]]),
+                ),
+                rows: [
+                  ["출력 후보", [...q]],
+                  ["출력 완료", [...out]],
+                ],
+              });
+            snap("A만 부모 수가 0입니다. 후보 힙에서 A부터 꺼냅니다.");
+            while (q.length) {
+              let n = q.shift();
+              out.push(n);
+              for (let [p, c] of edges) if (p === n && --d[c] === 0) q.push(c);
+              q.sort();
+              snap(
+                `${n} 출력 완료. 자식의 대기 부모 수를 줄이고, 0이 된 자식만 후보에 넣었습니다.`,
+                n,
+              );
+            }
+            ss.at(-1).note =
+              "A → B → C → D → E → F. 모든 부모가 자식보다 먼저 나왔습니다. 시간순 정렬만으로는 일반적으로 이 관계를 보장하지 못합니다.";
+            return ss;
+          },
+        },
+        {
+          id: "bfs",
+          name: "02　BFS 최단 경로",
+          title: "가까운 커밋부터 한 겹씩",
+          usage: "PATH A F · 너비 우선 탐색",
+          intro:
+            "A에서 F로 가려면 연결을 최소 몇 번 지나야 할까요? 이 명령은 부모·자식 연결을 양방향 길로 취급합니다.",
+          explain:
+            "<p>BFS는 큐를 사용합니다. 먼저 들어온 커밋을 먼저 꺼내므로 거리 1인 커밋을 모두 발견한 뒤 거리 2로 나아갑니다. 방문 거리를 기록해 중복 탐색도 막습니다.</p><p>프로젝트는 A와 F에서 각각 BFS를 수행합니다. 다음 노드는 시작점에서 한 칸 더 멀고, 양 끝까지의 거리 합이 최단 거리 3이어야 합니다.</p><p>A–B–D–F와 A–C–E–F는 모두 길이가 3입니다. 조건에 맞는 이웃 중 해시가 작은 B를 골라 A–B–D–F를 반환합니다. 연결되지 않았으면 경로 없음, 출발점과 도착점이 같으면 자기 자신만 반환합니다.</p>",
+          file: "graph.py",
+          fn: "find_shortest_path / _bfs_distances",
+          code: "queue = deque([start])\ncurrent = queue.popleft()\n미방문 이웃의 거리 = 현재 거리 + 1\nqueue.append(이웃)\n\n다음 후보 조건:\nd_start[next] == 현재 경로 길이\nd_start[next] + d_end[next] == 최단 거리",
+          cost: "두 번의 BFS와 경로 복원을 합쳐 O(V + E), 공간 O(V + E)입니다. 모든 간선의 이동 비용이 같을 때 BFS로 최단 거리를 구할 수 있습니다.",
+          build() {
+            let adj = Object.fromEntries(nodes.map((n) => [n, []]));
+            edges.forEach(([a, b]) => {
+              adj[a].push(b);
+              adj[b].push(a);
+            });
+            let ss = [],
+              ds = {};
+            for (let root of ["A", "F"]) {
+              let q = [root],
+                d = { [root]: 0 };
+              const snap = (note, current) =>
+                ss.push({
+                  note,
+                  current,
+                  undirected: true,
+                  done: Object.keys(d),
+                  labels: Object.fromEntries(
+                    nodes.map((n) => [n, "거리 " + (d[n] ?? "∞")]),
+                  ),
+                  rows: [
+                    ["탐색 출발점", [root]],
+                    ["큐 (왼쪽 먼저)", [...q]],
+                  ],
+                });
+              snap(`${root}에서 BFS 시작. 자기 자신까지의 거리는 0입니다.`);
+              while (q.length) {
+                let n = q.shift();
+                for (let v of adj[n])
+                  if (d[v] === undefined) {
+                    d[v] = d[n] + 1;
+                    q.push(v);
+                  }
+                snap(
+                  `${n}을 꺼내 미방문 이웃의 거리를 기록했습니다. 한 번 발견한 노드는 큐에 다시 넣지 않습니다.`,
+                  n,
+                );
+              }
+              ds[root] = d;
+            }
+            let path = ["A"];
+            for (let n of ["B", "D", "F"]) {
+              path.push(n);
+              ss.push({
+                undirected: true,
+                current: n,
+                done: [...path],
+                labels: Object.fromEntries(
+                  nodes.map((v) => [
+                    v,
+                    `${ds.A[v]} + ${ds.F[v]} = ${ds.A[v] + ds.F[v]}`,
+                  ]),
+                ),
+                note: `거리 조건을 만족하는 이웃 중 가장 작은 해시 ${n}를 선택합니다. 노드 아래는 A까지 거리 + F까지 거리입니다.`,
+                rows: [["복원한 경로", [...path]]],
+              });
+            }
+            return ss;
+          },
+        },
+        {
+          id: "dfs",
+          name: "03　DFS 조상 탐색",
+          title: "부모를 따라 깊이 거슬러 올라가기",
+          usage: "ANCESTORS F · 스택 기반 깊이 우선 탐색",
+          intro:
+            "F가 만들어지기까지 어떤 커밋들이 있었을까요? 이번에는 부모 방향으로만 이동합니다.",
+          explain:
+            "<p>스택은 마지막에 넣은 항목을 먼저 꺼냅니다. F의 부모 D, E를 넣었다면 E를 먼저 꺼내고, E의 부모 C를 넣어 그 갈래를 깊이 따라갑니다.</p><p>A는 두 갈래의 공통 조상입니다. 방문 집합에 이미 있는 A를 다시 만나면 건너뛰어 중복 처리를 막습니다.</p><p>결과는 조상 집합 {A, B, C, D, E}입니다. F 자신은 포함하지 않습니다. 화면의 발견 순서는 학습용이며 집합 자체에는 출력 순서가 없습니다.</p>",
+          file: "graph.py",
+          fn: "find_ancestors",
+          code: "ancestors = set()\nstack = list(commit.parents)\nwhile stack:\n    current = stack.pop()\n    if current in ancestors:\n        continue\n    ancestors.add(current)\n    stack.extend(current.parents)",
+          cost: "도달 가능한 조상과 부모 연결에 대해 O(V + E). 방문 집합과 스택을 사용하며 공간은 O(V + E) 범위입니다.",
+          build() {
+            let stack = ["D", "E"],
+              done = [],
+              ss = [];
+            let snap = (note, current) =>
+              ss.push({
+                reverse: true,
+                current,
+                done: [...done],
+                note,
+                rows: [
+                  ["스택 (오른쪽 먼저)", [...stack]],
+                  ["발견한 조상", [...done]],
+                ],
+              });
+            snap("F 자신 대신 F의 부모 D, E를 스택에 넣습니다.");
+            while (stack.length) {
+              let n = stack.pop();
+              if (done.includes(n)) {
+                snap(
+                  `${n}은 이미 방문했습니다. 부모를 다시 추가하지 않고 건너뜁니다.`,
+                  n,
+                );
+                continue;
+              }
+              done.push(n);
+              stack.push(...parents[n]);
+              snap(
+                `${n}을 조상에 추가하고 부모 ${parents[n].join(", ") || "(없음)"}를 스택에 넣습니다.`,
+                n,
+              );
+            }
+            return ss;
+          },
+        },
+        {
+          id: "merge",
+          name: "04　병합 정렬",
+          title: "반으로 나누고, 작은 것부터 합치기",
+          usage: "LOG --sort-by=date / author · 검색 결과 정렬",
+          intro:
+            "[7, 3, 5, 2, 3, 1]을 정렬해 봅시다. 한 개가 남을 때까지 나눈 뒤 정렬된 두 목록을 합칩니다.",
+          explain:
+            "<p>이미 정렬된 두 목록에서는 맨 앞끼리만 비교하면 됩니다. 더 작은 값을 결과에 옮기고, 한쪽이 비면 다른 쪽의 나머지를 붙입니다.</p><p>3①과 3②는 값은 같지만 원래 위치가 다른 항목입니다. 동점일 때 왼쪽을 먼저 선택하므로 3① → 3② 순서가 유지됩니다. 이를 안정 정렬이라고 합니다.</p><p>실제 커밋은 날짜 정렬 시 (timestamp, hash), 작성자 정렬 시 (author.lower(), timestamp, hash)를 비교합니다. 날짜만 같아도 해시가 다르면 전체 비교 키는 다릅니다.</p>",
+          file: "sort.py",
+          fn: "merge_sort / _merge",
+          code: "left = merge_sort(왼쪽 절반)\nright = merge_sort(오른쪽 절반)\nwhile 양쪽에 원소가 남음:\n    if not right_key < left_key:\n        왼쪽 원소 선택  # 동점도 왼쪽\n    else:\n        오른쪽 원소 선택\n남은 원소를 결과 뒤에 붙이기",
+          cost: "최선·평균·최악 모두 O(N log N), 추가 공간 O(N). 원본은 변경하지 않고 정렬된 새 목록을 반환합니다.",
+          build() {
+            let ss = [],
+              input = [7, 3, 5, 2, 3, 1].map((v, i) => ({
+                v,
+                label: v === 3 ? "3" + (i === 1 ? "①" : "②") : String(v),
+              }));
+            function snap(note, arr, rows = []) {
+              ss.push({
+                note,
+                values: arr.map((x) => x.v),
+                barLabels: arr.map((x) => x.label),
+                rows,
+              });
+            }
+            function run(a) {
+              if (a.length < 2) return a;
+              let m = Math.floor(a.length / 2);
+              snap(
+                "목록을 절반으로 나눕니다. 각 절반이 정렬되어야 병합할 수 있습니다.",
+                a,
+                [
+                  ["왼쪽", a.slice(0, m).map((x) => x.label)],
+                  ["오른쪽", a.slice(m).map((x) => x.label)],
+                ],
+              );
+              let l = run(a.slice(0, m)),
+                r = run(a.slice(m)),
+                o = [];
+              while (l.length && r.length) {
+                let x = l[0].v <= r[0].v ? l.shift() : r.shift();
+                o.push(x);
+                snap(
+                  `${x.label}을 결과로 옮깁니다. 같은 값이면 왼쪽 목록의 항목을 먼저 선택합니다.`,
+                  o,
+                  [
+                    ["왼쪽 남음", l.map((x) => x.label)],
+                    ["오른쪽 남음", r.map((x) => x.label)],
+                    ["병합 결과", o.map((x) => x.label)],
+                  ],
+                );
+              }
+              o.push(...l, ...r);
+              snap(
+                "한쪽이 비었습니다. 나머지를 붙이면 이 구간의 병합이 끝납니다.",
+                o,
+              );
+              return o;
+            }
+            snap(
+              "원본 목록입니다. 두 개의 3이 끝까지 어떤 순서를 유지하는지 살펴보세요.",
+              input,
+            );
+            run(input);
+            return ss;
+          },
+        },
+        {
+          id: "quick",
+          name: "05　퀵 정렬",
+          title: "피벗을 기준으로 세 구역 만들기",
+          usage: "직접 구현·테스트된 정렬 함수 · 현재 CLI는 병합 정렬 사용",
+          intro:
+            "[7, 3, 5, 2, 3, 1]에서 피벗보다 작은 값 / 같은 값 / 큰 값을 나눕니다. 프로젝트의 실제 교환 순서를 따라갑니다.",
+          explain:
+            "<p>첫 값, 가운데 값, 마지막 값 중 중간 크기를 피벗으로 선택합니다. 첫 단계의 후보는 7, 5, 1이므로 피벗은 5입니다.</p><p>cursor가 값을 조사합니다. 작은 값은 왼쪽 경계로, 큰 값은 오른쪽 경계로 교환합니다. 오른쪽에서 온 값은 아직 조사하지 않았으므로 큰 값을 교환한 직후에는 cursor를 전진시키지 않습니다.</p><p>같은 값 구역은 다시 정렬하지 않습니다. 작은 파티션만 재귀 호출하고 큰 파티션은 반복문으로 처리해 호출 스택을 제한합니다. 교환 때문에 같은 키끼리의 기존 순서는 보장하지 않습니다.</p>",
+          file: "sort.py",
+          fn: "quick_sort / _quick_sort_range",
+          code: "pivot = 첫·가운데·마지막 값의 중간값\nwhile cursor <= larger:\n    값 < pivot: 왼쪽과 교환, 두 포인터 전진\n    값 > pivot: 오른쪽과 교환, larger 감소\n    값 == pivot: cursor만 전진\n작은 파티션은 재귀, 큰 파티션은 반복",
+          cost: "평균 O(N log N), 최악 O(N²). 작은 쪽만 재귀 호출하므로 호출 스택 O(log N). 현재 함수는 입력을 복사하므로 복사본까지 포함한 추가 공간 O(N)입니다.",
+          build() {
+            let a = [7, 3, 5, 2, 3, 1],
+              ss = [];
+            let snap = (note, hot = [], rows = []) =>
+              ss.push({ note, values: [...a], hot, rows });
+            snap("시작 목록입니다. 막대 아래 위치 번호는 0부터 셉니다.");
+            function run(lo, hi) {
+              while (lo < hi) {
+                let mid = Math.floor((lo + hi) / 2),
+                  x = a[lo],
+                  y = a[mid],
+                  z = a[hi],
+                  pi =
+                    x < y
+                      ? y < z
+                        ? mid
+                        : x < z
+                          ? hi
+                          : lo
+                      : x < z
+                        ? lo
+                        : y < z
+                          ? hi
+                          : mid,
+                  p = a[pi],
+                  s = lo,
+                  c = lo,
+                  l = hi;
+                snap(
+                  `구간 ${lo}~${hi}: 후보 ${x}, ${y}, ${z}의 중간값 ${p}를 피벗으로 고릅니다.`,
+                  [pi],
+                );
+                while (c <= l) {
+                  let v = a[c],
+                    at = c;
+                  if (v < p) {
+                    [a[s], a[c]] = [a[c], a[s]];
+                    s++;
+                    c++;
+                  } else if (v > p) {
+                    [a[c], a[l]] = [a[l], a[c]];
+                    l--;
+                  } else c++;
+                  snap(
+                    `위치 ${at}의 ${v} ${v < p ? "<" : v > p ? ">" : "="} 피벗 ${p}. ${v > p ? "오른쪽과 교환하고 새로 들어온 값을 다음에 조사합니다." : v < p ? "왼쪽 구역으로 이동합니다." : "같은 값 구역에 남기고 전진합니다."}`,
+                    [at],
+                    [
+                      ["피벗", [p]],
+                      ["< 피벗", a.slice(lo, s)],
+                      ["= 피벗", a.slice(s, c)],
+                      ["미확인", a.slice(c, l + 1)],
+                      ["> 피벗", a.slice(l + 1, hi + 1)],
+                    ],
+                  );
+                }
+                if (s - lo < hi - l) {
+                  run(lo, s - 1);
+                  lo = l + 1;
+                } else {
+                  run(l + 1, hi);
+                  hi = s - 1;
+                }
+              }
+            }
+            run(0, a.length - 1);
+            snap(
+              "모든 구간 정렬 완료: 1, 2, 3, 3, 5, 7. 같은 값 구역을 재귀에서 제외했습니다.",
+            );
+            return ss;
+          },
+        },
+        {
+          id: "heap",
+          name: "06　최소 힙",
+          title: "가장 이른 후보를 빠르게 꺼내기",
+          usage: "위상 정렬의 ready · _heap_push / _heap_pop",
+          intro:
+            "후보 우선순위를 숫자로 줄여 [4, 2, 7, 1]을 차례로 넣고 꺼내봅니다. 트리의 꼭대기에는 항상 최솟값이 있습니다.",
+          explain:
+            "<p>힙은 부모의 값이 자식보다 작거나 같은 이진 트리입니다. 형제끼리까지 정렬된 것은 아닙니다. 가장 작은 값만 꼭대기에서 바로 찾을 수 있습니다.</p><p>삽입할 때는 배열 끝에 붙인 뒤 부모보다 작으면 위로 교환합니다. 꺼낼 때는 마지막 값을 꼭대기로 옮기고 더 작은 자식과 아래로 교환합니다.</p><p>실제 비교 대상은 숫자가 아니라 (timestamp, hash)입니다. 배열에서 부모 위치는 (i−1)//2, 왼쪽 자식은 2i+1, 오른쪽 자식은 2i+2입니다.</p>",
+          file: "graph.py",
+          fn: "_heap_push / _heap_pop",
+          code: "삽입: 배열 끝에 추가 → 부모와 비교 → 위로 교환\n삭제: 루트 반환 → 마지막 값을 루트로\n      → 더 작은 자식과 비교 → 아래로 교환",
+          cost: "삽입·최솟값 삭제 각각 O(log N), 최솟값 확인 O(1), 저장 공간 O(N). 전체 후보를 매번 다시 정렬하지 않아도 됩니다.",
+          build() {
+            let a = [],
+              ss = [],
+              out = [];
+            let snap = (note, hot = []) =>
+              ss.push({
+                note,
+                heap: [...a],
+                hot,
+                rows: [
+                  ["힙 배열", [...a]],
+                  ["꺼낸 순서", [...out]],
+                ],
+              });
+            snap("빈 힙에서 시작합니다.");
+            for (let v of [4, 2, 7, 1]) {
+              a.push(v);
+              let i = a.length - 1;
+              snap(`${v}을 배열 끝에 추가합니다.`, [i]);
+              while (i > 0) {
+                let p = Math.floor((i - 1) / 2);
+                if (a[p] <= a[i]) break;
+                [a[p], a[i]] = [a[i], a[p]];
+                snap("부모보다 작으므로 위로 교환합니다.", [i, p]);
+                i = p;
+              }
+            }
+            while (a.length) {
+              let first = a[0],
+                last = a.pop();
+              out.push(first);
+              if (a.length) a[0] = last;
+              snap(
+                `최솟값 ${first}를 꺼내고 마지막 값을 루트로 옮깁니다.`,
+                [0],
+              );
+              let p = 0;
+              while (true) {
+                let l = p * 2 + 1,
+                  r = l + 1,
+                  s = p;
+                if (l < a.length && a[l] < a[s]) s = l;
+                if (r < a.length && a[r] < a[s]) s = r;
+                if (s === p) break;
+                [a[p], a[s]] = [a[s], a[p]];
+                snap("더 작은 자식과 교환해 힙 조건을 복구합니다.", [p, s]);
+                p = s;
+              }
+            }
+            return ss;
+          },
+        },
+        {
+          id: "index",
+          name: "07　역색인 검색",
+          title: "단어에서 커밋을 찾아가기",
+          usage: "SEARCH login feature · dict + set 교집합",
+          intro:
+            "책 뒤의 찾아보기처럼, 단어마다 그 단어가 들어 있는 커밋 목록을 미리 저장합니다.",
+          explain:
+            "<p>커밋 추가 시 메시지를 소문자로 바꾸고 공백으로 나눕니다. 각 단어를 dict의 키로, 커밋 해시 집합을 값으로 저장합니다. 같은 단어가 반복되어도 set에 한 번만 들어갑니다.</p><p>여러 검색어는 AND 조건입니다. login과 feature가 모두 있는 커밋을 찾으려면 두 집합의 교집합을 구합니다. 가장 작은 후보 집합을 먼저 복사해 비교할 양을 줄입니다.</p><p>단어 전체가 일치해야 합니다. login으로 login,을 찾지는 못합니다. 없는 단어가 하나라도 있으면 결과는 즉시 빈 집합입니다. 작성자도 소문자로 정규화한 이름 전체를 별도 색인에서 찾습니다.</p>",
+          file: "index.py",
+          fn: "InvertedIndex.add / search_keywords",
+          code: "tokens = message.lower().split()\nkeyword_index[token].add(commit.hash)\n\ncandidates = 검색어별 해시 집합\nmatches = 가장 작은 집합의 복사본\n나머지 집합과 intersection_update()",
+          cost: "단어별 dict 조회는 평균 O(1)이지만 전체 검색이 O(1)은 아닙니다. 토큰 처리, 후보 집합 복사·교집합에 비용이 들고, 결과 K개는 저장소에서 O(K log K) 병합 정렬을 거칩니다.",
+          build() {
+            let docs = [
+                ["A", "Add login"],
+                ["B", "Login feature"],
+                ["C", "Feature test"],
+                ["D", "Fix login login"],
+              ],
+              idx = {},
+              ss = [];
+            let snap = (note, rows = []) =>
+              ss.push({
+                note,
+                index: JSON.parse(JSON.stringify(idx)),
+                docs,
+                rows,
+              });
+            snap("네 개의 커밋을 등록하며 단어 → 커밋 색인을 만듭니다.");
+            for (let [id, msg] of docs) {
+              for (let t of msg.toLowerCase().split(/\s+/)) {
+                idx[t] ??= [];
+                if (!idx[t].includes(id)) idx[t].push(id);
+              }
+              snap(
+                `${id}: "${msg}"를 소문자·공백 기준으로 분리해 등록했습니다.`,
+                [["분리한 단어", msg.toLowerCase().split(/\s+/)]],
+              );
+            }
+            snap(
+              '검색어 "login feature"를 분리합니다. login에는 3개, feature에는 2개 후보가 있습니다.',
+              [
+                ["login", idx.login],
+                ["feature", idx.feature],
+              ],
+            );
+            snap("작은 집합 feature의 {B, C}를 복사합니다.", [
+              ["현재 후보", ["B", "C"]],
+            ]);
+            snap("{B, C} ∩ {A, B, D} = {B}. B만 두 단어를 모두 포함합니다.", [
+              ["검색 결과", ["B"]],
+              ["메시지", ["Login feature"]],
+            ]);
+            return ss;
+          },
+        },
+      ];
+      const sourceFiles = {topo: 'topological_sort.py', bfs: 'bfs.py', dfs: 'dfs.py', merge: 'merge_sort.py', quick: 'quick_sort.py', heap: 'min_heap.py', index: 'inverted_index.py'};
+      for (const lesson of lessons) {
+        lesson.file = sourceFiles[lesson.id];
+        if (lesson.id === 'heap') {
+          lesson.fn = 'heap_push / heap_pop';
+          lesson.usage = '위상 정렬의 ready · heap_push / heap_pop';
+        }
+      }
+      const definitions = {
+        topo: "위상 정렬은 선후 관계가 있는 항목을 “먼저 해야 할 일이 앞에 오도록” 나열하는 알고리즘입니다. 순환이 없는 방향 그래프(DAG)에 사용하며, 옷을 입을 때 양말을 신발보다 먼저 신는 순서와 비슷합니다.",
+        bfs: "BFS(Breadth-First Search, 너비 우선 탐색)는 시작점과 가까운 곳부터 차례로 탐색하는 알고리즘입니다. 한 정거장 거리, 두 정거장 거리 순으로 살펴보는 방식이며, 연결마다 이동 비용이 같으면 최단 경로를 찾을 수 있습니다.",
+        dfs: "DFS(Depth-First Search, 깊이 우선 탐색)는 한 갈래를 가능한 깊이 따라간 뒤 돌아와 다른 갈래를 탐색하는 알고리즘입니다. 미로에서 한 길을 끝까지 확인하고 갈림길로 돌아오는 방식과 비슷하며, 연결된 대상을 빠짐없이 찾는 데 쓰입니다.",
+        merge:
+          "병합 정렬(Merge Sort)은 목록을 작은 조각으로 나누고, 각 조각을 정렬하면서 합치는 알고리즘입니다. 이미 순서대로 놓인 두 카드 묶음에서 앞 카드끼리 비교해 작은 카드부터 새 묶음에 놓는 방식입니다.",
+        quick:
+          "퀵 정렬(Quick Sort)은 기준값인 피벗을 정하고, 그보다 작은 값과 큰 값을 나눈 뒤 각 구역을 다시 정렬하는 알고리즘입니다. 사람들을 기준 키보다 작은 그룹과 큰 그룹으로 나누는 과정을 반복하는 것과 비슷합니다.",
+        heap: "최소 힙(Min Heap)은 가장 작은 값을 빠르게 꺼낼 수 있도록 부모의 값이 자식보다 작거나 같게 유지하는 트리 자료구조입니다. 이 자료구조의 삽입·삭제 알고리즘을 이용하면 우선순위가 가장 높은 일을 먼저 처리할 수 있습니다.",
+        index:
+          "역색인(Inverted Index)은 단어마다 그 단어가 등장하는 문서 목록을 저장한 자료구조입니다. 책 뒤의 찾아보기에서 단어로 페이지를 찾듯, 이 구조를 이용한 검색은 모든 커밋의 본문을 매번 읽지 않고 관련 커밋을 찾습니다.",
+      };
+      for (const lesson of lessons) {
+        lesson.explain =
+          "<p><strong>어떤 개념인가요?</strong><br>" +
+          definitions[lesson.id] +
+          "</p>" +
+          lesson.explain;
+      }
+      let active,
+        steps,
+        step = 0,
+        timer = null;
+      function stop() {
+        clearInterval(timer);
+        timer = null;
+        $("play").textContent = "자동 재생";
+      }
+      function render() {
+        let s = steps[step];
+        $("counter").textContent = `${step + 1} / ${steps.length} 단계`;
+        $("prev").disabled = step === 0;
+        $("next").disabled = step === steps.length - 1;
+        $("note").textContent = s.note;
+        $("state").innerHTML = (s.rows || []).map((r) => row(...r)).join("");
+        if (s.values) {
+          $("canvas").innerHTML =
+            '<div class="barlist">' +
+            s.values
+              .map(
+                (v, i) =>
+                  `<div class="bar ${(s.hot || []).includes(i) ? "hot" : ""}" style="height:${40 + v * 17}px">${esc(s.barLabels?.[i] ?? v)}<div style="font-size:12px">${i}</div></div>`,
+              )
+              .join("") +
+            "</div>";
+        } else if (s.heap) {
+          let a = s.heap,
+            p = (i) => {
+              let level = Math.floor(Math.log2(i + 1)),
+                first = 2 ** level - 1;
+              return [
+                (550 * (i - first + 1)) / (2 ** level + 1),
+                40 + level * 85,
+              ];
+            };
+          $("canvas").innerHTML =
+            `<svg viewBox="0 0 550 270" role="img" aria-label="최소 힙" lang="ko">${a
+              .map((v, i) => {
+                let [x, y] = p(i),
+                  [u, w] = p(Math.floor((i - 1) / 2));
+                return i
+                  ? `<line x1="${u}" y1="${w}" x2="${x}" y2="${y}" stroke="#9badc0" stroke-width="2"/>`
+                  : "";
+              })
+              .join("")}${a
+              .map((v, i) => {
+                let [x, y] = p(i);
+                return `<circle cx="${x}" cy="${y}" r="24" fill="${s.hot.includes(i) ? "#ffc976" : "#d8e8ff"}"/><text x="${x}" y="${y + 6}" text-anchor="middle">${v}</text>`;
+              })
+              .join(
+                "",
+              )}${a.length ? "" : '<text x="275" y="130" text-anchor="middle">빈 힙</text>'}</svg>`;
+        } else if (s.index) {
+          $("canvas").innerHTML =
+            "<table><thead><tr><th>커밋</th><th>메시지</th></tr></thead><tbody>" +
+            s.docs
+              .map(([id, m]) => `<tr><td>${id}</td><td>${m}</td></tr>`)
+              .join("") +
+            '</tbody></table><h3 style="margin-top:20px">단어 → 커밋 집합</h3>' +
+            Object.entries(s.index)
+              .map(([k, v]) => row(k, v))
+              .join("");
+        } else $("canvas").innerHTML = graph(s);
+        if (step === steps.length - 1) stop();
+      }
+      function select(id) {
+        stop();
+        active = lessons.find((l) => l.id === id);
+        steps = active.build();
+        step = 0;
+        $("usage").textContent = active.usage;
+        $("title").textContent = active.title;
+        $("intro").textContent = active.intro;
+        $("explanation").innerHTML = active.explain;
+        $("cost").textContent = active.cost;
+        $("code").innerHTML =
+          `<p><a href="../minigit/algorithms/${active.file}">${active.file}</a> · <code>${active.fn}</code></p><p class="meta">핵심 흐름을 줄인 의사 코드입니다.</p><pre>${esc(active.code)}</pre>`;
+        $("legend").textContent = ["topo", "bfs", "dfs"].includes(id)
+          ? "주황 = 현재 처리 · 초록 = 발견 또는 처리 완료 · " +
+            (id === "dfs"
+              ? "화살표: 자식 → 부모"
+              : id === "bfs"
+                ? "연결선: 양방향 이동"
+                : "화살표: 부모 → 자식 (Commit.parents의 저장 방향과 반대)")
+          : id === "quick" || id === "heap"
+            ? "주황 = 현재 비교·교환 위치"
+            : "다음 버튼으로 데이터가 바뀌는 과정을 따라가세요.";
+        document.querySelectorAll("nav button").forEach((b) => {
+          b.classList.toggle("active", b.dataset.id === id);
+          b.setAttribute("aria-pressed", b.dataset.id === id);
+        });
+        render();
+      }
+      $("nav").innerHTML =
+        lessons
+          .map((l) => `<button data-id="${l.id}">${l.name}</button>`)
+          .join("") +
+        "<small>이전 / 다음으로 관찰하고<br>자동 재생으로 흐름을 보세요.<br><br>인터넷 없이도 열립니다.</small>";
+      document
+        .querySelectorAll("nav button")
+        .forEach((b) => (b.onclick = () => select(b.dataset.id)));
+      $("prev").onclick = () => {
+        stop();
+        if (step > 0) step--;
+        render();
+      };
+      $("next").onclick = () => {
+        stop();
+        if (step < steps.length - 1) step++;
+        render();
+      };
+      $("reset").onclick = () => {
+        stop();
+        step = 0;
+        render();
+      };
+      $("play").onclick = () => {
+        if (timer) {
+          stop();
+          return;
+        }
+        if (step === steps.length - 1) step = 0;
+        render();
+        $("play").textContent = "일시 정지";
+        timer = setInterval(
+          () => {
+            if (step < steps.length - 1) {
+              step++;
+              render();
+            } else stop();
+          },
+          Number($("speed").value),
+        );
+      };
+      $("speed").onchange = () => {
+        if (timer) {
+          stop();
+          $("play").click();
+        }
+      };
+      select("topo");
+    </script>
+  </body>
+</html>

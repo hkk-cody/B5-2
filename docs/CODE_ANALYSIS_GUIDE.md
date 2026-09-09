@@ -23,7 +23,7 @@
 Mini Git은 실제 파일 내용을 저장하지 않고 다음 **커밋 메타데이터**만 메모리에
 보관합니다.
 
-- 6자리 커밋 해시
+- 40자리 전체 커밋 해시 (화면에서는 기본 6자리로 축약)
 - 커밋 메시지
 - 작성자
 - 생성 시각
@@ -449,7 +449,7 @@ sequenceDiagram
     Parser->>Repo: create_commit(message)
     Repo->>Repo: 현재 HEAD와 부모 해시 확인
     Repo->>Hash: SHA-1 후보 계산
-    Hash-->>Repo: 6자리 해시
+    Hash-->>Repo: 40자리 전체 해시
     Repo->>Repo: commits와 branches 갱신
     Repo->>Index: add(commit)
     Index-->>Repo: 키워드·작성자 등록 완료
@@ -463,7 +463,7 @@ sequenceDiagram
 2. 현재 브랜치가 가리키는 해시를 읽습니다.
 3. 첫 커밋이면 `parents=()`, 그 외에는 `parents=(current_hash,)`로 만듭니다.
 4. 현재 시각을 `YYYY-MM-DD HH:MM:SS` 문자열로 만듭니다.
-5. `_make_unique_hash()`로 6자리 해시를 생성합니다.
+5. `_make_unique_hash()`로 40자리 전체 해시를 생성합니다.
 6. 불변 `Commit` 객체를 만듭니다.
 7. `commits[commit_hash]`에 객체를 저장합니다.
 8. 현재 브랜치가 새 해시를 가리키도록 바꿉니다.
@@ -508,7 +508,7 @@ LOG --sort-by=author
 있으면 DAG 관계보다 사용자가 선택한 날짜 또는 작성자 비교 기준을 우선합니다.
 
 handler는 `Repository.branches_by_commit()`으로 브랜치를 한 번 순회해 해시별
-이름 목록을 만들고, `_format_log_commit(commit, branch_names)`에 전달합니다. 브랜치는 과거 커밋 전체에 표시되는 것이 아니라 현재 그 해시를 직접
+이름 목록을 만들고, `_format_log_commit(commit, branch_names, short_hash)`에 전달합니다. `short_hash`는 `abbreviated_hashes()`의 표시표에서 가져옵니다. 브랜치는 과거 커밋 전체에 표시되는 것이 아니라 현재 그 해시를 직접
 가리킬 때만 표시됩니다.
 
 ### 7.5 PATH
@@ -592,12 +592,16 @@ feature -> {b2b2b2, c3c3c3}
 message + author + timestamp + parents + nonce
 ```
 
-SHA-1 전체는 40자리 16진수이지만 과제 명세에 맞춰 앞 6자리만 사용합니다. 6자리
-공간은 `16⁶`개이므로 서로 다른 입력이 같은 앞 6자리를 가질 가능성이 있습니다.
+SHA-1 전체 40자리를 저장합니다. 과제 원문은 길이를 지정하지 않고 세션 내
+유일성을 요구합니다. 전체 후보가 이미 `commits`에 있으면 `nonce`를 증가시켜
+다시 계산하므로 기존 커밋을 덮어쓰지 않습니다.
 
-이를 **해시 충돌**이라고 합니다. 현재 구현은 후보가 이미 `commits`에 있으면
-`nonce`를 증가시켜 다시 계산합니다. 따라서 한 세션에서 같은 6자리 해시를 두
-커밋에 배정하지 않습니다.
+화면에서는 `abbreviated_hashes()`가 기본 6자리의 표시표를 만듭니다. 앞부분만
+겹치면 재계산하지 않고 7자리, 8자리 등으로 늘려 보여 줍니다. 전체 해시를
+정렬한 뒤 앞뒤 이웃과 공통인 길이를 확인하므로 표시표 생성은 O(V log V)입니다.
+이것은 검색·그래프 알고리즘 자체의 비용과 별도로 발생하는 출력 준비 비용입니다.
+`get_commit()`은 전체 해시를 먼저 조회하고, 없으면 유일한 접두어를 찾습니다.
+여러 커밋에 해당하는 접두어는 `Ambiguous commit` 오류로 처리합니다.
 
 분석 포인트:
 
@@ -799,7 +803,7 @@ repository = Repository(clock=clock)
 ### 해시 충돌을 강제로 만드는 테스트
 
 `test_hash_collision_retries_without_overwriting_existing_commit`은 `unittest.mock.patch`로
-SHA-1의 결과를 대신해 앞 6자리가 겹치는 상황을 만듭니다. 재시도 후 기존 커밋,
+SHA-1의 결과를 대신해 40자리 전체가 겹치는 상황을 만듭니다. 재시도 후 기존 커밋,
 새 커밋의 부모, HEAD, 역색인이 모두 올바른지 확인합니다. 같은 메시지를 두 번
 커밋하는 테스트와 달리 실제 충돌 처리 분기를 반드시 실행합니다.
 
@@ -905,7 +909,7 @@ python -m unittest tests.test_cli.CommandProcessorTests.test_branch_log_search_p
 - Quick Sort는 CLI 기능에서 사용하지 않고 학습·단위 테스트용으로만 제공합니다.
 - 검색 토큰은 단순히 공백으로 나누므로 `login`과 `login!`은 서로 다른 단어입니다.
 - 작성자 검색은 부분 일치가 아니라 대소문자만 무시한 전체 일치입니다.
-- 커밋 해시는 정확한 6자리 전체를 입력해야 하며 짧은 접두어 검색은 없습니다.
+- 커밋 참조는 전체 해시 또는 유일한 접두어를 받습니다. 여러 커밋과 겹치는 접두어는 거부합니다.
 - 실제 Git의 객체 데이터베이스, working tree, index, 원격 저장소 기능을 단순화한
   학습용 모델입니다.
 

@@ -6,9 +6,11 @@ import hashlib
 from collections.abc import Callable
 from datetime import datetime
 
-from minigit.algorithms.graph import find_ancestors, find_shortest_path, topological_sort
-from minigit.algorithms.index import InvertedIndex
-from minigit.algorithms.sort import merge_sort
+from minigit.algorithms.bfs import find_shortest_path
+from minigit.algorithms.dfs import find_ancestors
+from minigit.algorithms.inverted_index import InvertedIndex
+from minigit.algorithms.merge_sort import merge_sort
+from minigit.algorithms.topological_sort import topological_sort
 from minigit.models import Commit
 
 
@@ -27,8 +29,7 @@ class Repository:
     일반 실행에서는 현재 시각을 반환하는 ``datetime.now``를 사용합니다.
     """
 
-    HASH_LENGTH = 6
-    HASH_SPACE_SIZE = 16**HASH_LENGTH
+    SHORT_HASH_LENGTH = 6
 
     def __init__(self, clock: Callable[[], datetime] | None = None) -> None:
         self.commits: dict[str, Commit] = {}
@@ -38,12 +39,11 @@ class Repository:
         self.index = InvertedIndex()
 
         self._clock = clock if clock is not None else datetime.now
-        self._hash_nonce = 0
+        self._hash_nonce = 0 # 커밋 해시 충돌을 피하기 위해 내부적으로 사용하는 순번
 
     @property
     def initialized(self) -> bool:
         """INIT 명령이 성공했는지 알려 줍니다."""
-
         return self.current_user is not None and self.head_branch is not None
 
     @property
@@ -52,7 +52,7 @@ class Repository:
 
         self._require_initialized()
         # 초기화가 끝났다면 head_branch는 반드시 branches에 존재합니다.
-        assert self.head_branch is not None
+        assert self.head_branch is not None # 타입 체커를 위한 단언
         return self.branches[self.head_branch]
 
     def initialize(self, user_name: str) -> None:
@@ -123,12 +123,48 @@ class Repository:
         return commit
 
     def get_commit(self, commit_hash: str) -> Commit:
-        """해시로 커밋을 찾고, 없으면 표준 오류를 발생시킵니다."""
+        """전체 해시 또는 유일한 접두어로 커밋을 찾습니다."""
 
         self._require_initialized()
-        if commit_hash not in self.commits:
-            raise RepositoryError(f"Unknown commit: {commit_hash}")
-        return self.commits[commit_hash]
+        if commit_hash in self.commits:
+            return self.commits[commit_hash]
+
+        match: Commit | None = None
+        if commit_hash:
+            for full_hash, commit in self.commits.items():
+                if full_hash.startswith(commit_hash):
+                    if match is not None:
+                        raise RepositoryError(f"Ambiguous commit: {commit_hash}")
+                    match = commit
+        if match is not None:
+            return match
+        raise RepositoryError(f"Unknown commit: {commit_hash}")
+
+    def abbreviated_hashes(self) -> dict[str, str]:
+        """전체 해시를 화면용 접두어로 매핑합니다. 겹치면 표시 길이를 늘립니다.
+
+        정렬된 해시에서는 바로 앞뒤 해시와 구분되면 나머지와도 구분됩니다.
+        따라서 커밋마다 모든 해시를 다시 검사하지 않고 표시표를 만듭니다.
+        결과는 출력용이며 commits, parents, branches, 역색인은 변경하지 않습니다.
+        """
+
+        hashes = merge_sort(list(self.commits))
+        abbreviated: dict[str, str] = {}
+        for index, full_hash in enumerate(hashes):
+            length = self.SHORT_HASH_LENGTH
+            for neighbor_index in (index - 1, index + 1):
+                if not 0 <= neighbor_index < len(hashes):
+                    continue
+                neighbor = hashes[neighbor_index]
+                shared = 0
+                while (
+                    shared < min(len(full_hash), len(neighbor))
+                    and full_hash[shared] == neighbor[shared]
+                ):
+                    shared += 1
+                length = max(length, shared + 1)
+            abbreviated[full_hash] = full_hash[:length]
+        return abbreviated
 
     def get_log(self, sort_by: str | None = None) -> list[Commit]:
         """위상 순서 또는 요청한 비교 기준으로 전체 커밋을 반환합니다."""
@@ -156,14 +192,14 @@ class Repository:
     def get_path(self, start_hash: str, end_hash: str) -> list[str] | None:
         """두 해시를 검증한 뒤 무방향 그래프의 최단 경로를 반환합니다."""
 
-        self.get_commit(start_hash)
-        self.get_commit(end_hash)
+        start_hash = self.get_commit(start_hash).hash
+        end_hash = self.get_commit(end_hash).hash
         return find_shortest_path(self.commits, start_hash, end_hash)
 
     def get_ancestors(self, commit_hash: str) -> list[Commit]:
         """모든 조상을 부모가 자식보다 먼저 오는 순서로 반환합니다."""
 
-        self.get_commit(commit_hash)
+        commit_hash = self.get_commit(commit_hash).hash
         ancestor_hashes = find_ancestors(self.commits, commit_hash)
         ancestor_commits: dict[str, Commit] = {}
 
@@ -223,15 +259,12 @@ class Repository:
         timestamp: str,
         parents: tuple[str, ...],
     ) -> str:
-        """커밋 메타데이터로 세션에서 유일한 6자리 SHA-1 해시를 만듭니다.
+        """커밋 메타데이터로 세션에서 유일한 전체 SHA-1 해시를 만듭니다.
 
-        SHA-1 전체값의 앞 6자리만 사용하면 아주 드물게 기존 해시와 충돌할 수
-        있습니다. 내부 순번(nonce)을 입력에 함께 넣고 충돌 시 다음 순번으로
-        다시 계산하여, 사용 가능한 해시 공간 안에서는 중복을 허용하지 않습니다.
+        40자리 전체값을 저장합니다. 앞부분만 같은 해시는 서로 다른 커밋입니다.
+        전체값까지 중복되면 내부 순번(nonce)을 바꿔 다시 계산합니다.
+        화면 표시용 축약은 abbreviated_hashes()에서 별도로 처리합니다.
         """
-
-        if len(self.commits) >= self.HASH_SPACE_SIZE:
-            raise RepositoryError("Commit hash space exhausted")
 
         while True:
             nonce = self._hash_nonce
@@ -240,9 +273,7 @@ class Repository:
             payload = "\x1f".join(
                 (message, author, timestamp, parent_text, str(nonce))
             )
-            candidate = hashlib.sha1(payload.encode("utf-8")).hexdigest()[
-                : self.HASH_LENGTH
-            ]
+            candidate = hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
             if candidate not in self.commits:
                 return candidate

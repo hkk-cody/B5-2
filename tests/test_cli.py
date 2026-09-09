@@ -7,6 +7,7 @@ import sys
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from minigit.models import Commit
 from minigit.parser import CommandProcessor
@@ -73,15 +74,46 @@ class CommandProcessorTests(unittest.TestCase):
         path_output = self.processor.execute(f"PATH {feature_hash} {main_hash}").output
         ancestor_output = self.processor.execute(f"ANCESTORS {feature_hash}").output
 
-        self.assertLess(log_output.index(root_hash), log_output.index(feature_hash))
-        self.assertLess(log_output.index(root_hash), log_output.index(main_hash))
-        self.assertIn(f"- {feature_hash}: Add login feature", search_output)
+        short = self.processor.repository.abbreviated_hashes()
+        self.assertLess(log_output.index(short[root_hash]), log_output.index(short[feature_hash]))
+        self.assertLess(log_output.index(short[root_hash]), log_output.index(short[main_hash]))
+        self.assertIn(f"- {short[feature_hash]}: Add login feature", search_output)
         self.assertIn("Found 3 commits:", author_output)
         self.assertEqual(
             path_output,
-            f"Path: {feature_hash} -> {root_hash} -> {main_hash}",
+            f"Path: {short[feature_hash]} -> {short[root_hash]} -> {short[main_hash]}",
         )
-        self.assertIn(f"- {root_hash}: Initial commit", ancestor_output)
+        self.assertIn(f"- {short[root_hash]}: Initial commit", ancestor_output)
+
+    def test_short_hashes_are_unambiguous_across_all_outputs_and_inputs(self) -> None:
+        self.processor.execute("init Alice")
+        first_hash = "abcdef0" + "1" * 33
+        second_hash = "abcdef1" + "2" * 33
+        with patch("minigit.repository.hashlib.sha1") as sha1:
+            sha1.return_value.hexdigest.side_effect = [first_hash, second_hash]
+            self.assertEqual(self.processor.execute("commit root").output, "[main abcdef] root")
+            self.assertEqual(self.processor.execute("commit child").output, "[main abcdef1] child")
+
+        for command in ("log", "log --sort-by=date", "log --sort-by=author", "search --author=Alice"):
+            with self.subTest(command=command):
+                output = self.processor.execute(command).output
+                self.assertIn("abcdef0", output)
+                self.assertIn("abcdef1", output)
+                self.assertNotIn(first_hash, output)
+                self.assertNotIn(second_hash, output)
+        # 검색 결과가 하나여도 저장소의 다른 커밋과 구분되는 길이로 표시합니다.
+        self.assertIn("- abcdef0: root", self.processor.execute("search root").output)
+        for reference in ("abcdef1", second_hash):
+            self.assertEqual(self.processor.execute(f"ancestors {reference}").output,
+                             "Ancestors of abcdef1:\n- abcdef0: root")
+            self.assertEqual(self.processor.execute(f"path abcdef0 {reference}").output,
+                             "Path: abcdef0 -> abcdef1")
+        self.assertEqual(self.processor.execute("path abcdef0 abcdef0").output, "Path: abcdef0")
+        self.assertEqual(self.processor.execute("ancestors abcdef0").output, "No ancestors")
+        for command in ("ancestors abcdef", "path abcdef abcdef1", "path abcdef0 abcdef"):
+            self.assertEqual(self.processor.execute(command).output, "Ambiguous commit: abcdef")
+        self.assertEqual(self.processor.execute("ancestors ffffff").output, "Unknown commit: ffffff")
+        self.assertIn("abcdef0", self.processor.execute("log").output)
 
     def test_log_options_and_unknown_option(self) -> None:
         self.processor.execute("init Alice")
@@ -105,7 +137,8 @@ class CommandProcessorTests(unittest.TestCase):
 
         output = processor.execute("log").output
 
-        self.assertIn(commit.hash, output)
+        self.assertIn(commit.hash[:6], output)
+        self.assertNotIn(commit.hash, output)
         self.assertIn(commit.author, output)
         self.assertIn(commit.timestamp, output)
         self.assertIn(commit.message, output)
@@ -119,7 +152,7 @@ class CommandProcessorTests(unittest.TestCase):
         output = self.processor.execute('search "--fix"').output
 
         self.assertIn("Found 1 commit:", output)
-        self.assertIn(f"- {commit_hash}: --fix parser", output)
+        self.assertIn(f"- {commit_hash[:6]}: --fix parser", output)
         self.assertEqual(
             self.processor.execute("search --author").output,
             "Invalid args",

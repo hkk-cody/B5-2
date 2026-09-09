@@ -109,8 +109,9 @@ class CommandProcessor:
 
         commit = self.repository.create_commit(args[0])
         assert self.repository.head_branch is not None
+        short_hash = self.repository.abbreviated_hashes()[commit.hash]
         return CommandResult(
-            f"[{self.repository.head_branch} {commit.hash}] {commit.message}"
+            f"[{self.repository.head_branch} {short_hash}] {commit.message}"
         )
 
     def _handle_log(self, args: list[str]) -> CommandResult:
@@ -132,8 +133,11 @@ class CommandProcessor:
             return CommandResult("No commits")
 
         branches_by_commit = self.repository.branches_by_commit()
+        short_hashes = self.repository.abbreviated_hashes()
         blocks = [
-            self._format_log_commit(commit, branches_by_commit.get(commit.hash, []))
+            self._format_log_commit(
+                commit, branches_by_commit.get(commit.hash, []), short_hashes[commit.hash]
+            )
             for commit in commits
         ]
         return CommandResult("\n\n".join(blocks))
@@ -145,7 +149,8 @@ class CommandProcessor:
         path = self.repository.get_path(args[0], args[1])
         if path is None:
             return CommandResult("No path")
-        return CommandResult(f"Path: {' -> '.join(path)}")
+        short_hashes = self.repository.abbreviated_hashes()
+        return CommandResult(f"Path: {' -> '.join(short_hashes[value] for value in path)}")
 
     def _handle_ancestors(self, args: list[str]) -> CommandResult:
         if not self._has_one_nonempty_arg(args):
@@ -155,9 +160,11 @@ class CommandProcessor:
         if not ancestors:
             return CommandResult("No ancestors")
 
-        lines = [f"Ancestors of {args[0]}:"]
+        short_hashes = self.repository.abbreviated_hashes()
+        target_hash = self.repository.get_commit(args[0]).hash
+        lines = [f"Ancestors of {short_hashes[target_hash]}:"]
         for commit in ancestors:
-            lines.append(f"- {commit.hash}: {commit.message}")
+            lines.append(f"- {short_hashes[commit.hash]}: {commit.message}")
         return CommandResult("\n".join(lines))
 
     def _handle_search(self, args: list[str]) -> CommandResult:
@@ -190,7 +197,9 @@ class CommandProcessor:
         return CommandResult(self._format_search_results(commits))
 
     @staticmethod
-    def _format_log_commit(commit: Commit, branch_names: list[str]) -> str:
+    def _format_log_commit(
+        commit: Commit, branch_names: list[str], short_hash: str
+    ) -> str:
         """로그에 필요한 해시, 작성자, 시각, 메시지를 읽기 좋게 만듭니다."""
 
         branch_label = ""
@@ -198,12 +207,11 @@ class CommandProcessor:
             branch_label = f" [{', '.join(branch_names)}]"
 
         return (
-            f"commit {commit.hash} ({commit.author}, {commit.timestamp})"
+            f"commit {short_hash} ({commit.author}, {commit.timestamp})"
             f"{branch_label}\n{commit.message}"
         )
 
-    @staticmethod
-    def _format_search_results(commits: list[Commit]) -> str:
+    def _format_search_results(self, commits: list[Commit]) -> str:
         """검색 개수와 커밋 요약을 과제 예시와 같은 형태로 만듭니다."""
 
         count = len(commits)
@@ -212,6 +220,7 @@ class CommandProcessor:
 
         noun = "commit" if count == 1 else "commits"
         lines = [f"Found {count} {noun}:", ""]
+        short_hashes = self.repository.abbreviated_hashes()
         for commit in commits:
-            lines.append(f"- {commit.hash}: {commit.message}")
+            lines.append(f"- {short_hashes[commit.hash]}: {commit.message}")
         return "\n".join(lines)

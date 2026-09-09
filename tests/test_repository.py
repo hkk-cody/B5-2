@@ -33,18 +33,69 @@ class RepositoryTests(unittest.TestCase):
         with patch("minigit.repository.hashlib.sha1") as sha1:
             sha1.return_value.hexdigest.side_effect = [
                 "aaaaaa" + "0" * 34,
-                "aaaaaa" + "1" * 34,
+                "aaaaaa" + "0" * 34,
                 "bbbbbb" + "0" * 34,
             ]
             first = repository.create_commit("first")
             second = repository.create_commit("second")
         self.assertEqual(len(repository.commits), 2)
         self.assertEqual(repository.get_commit(first.hash), first)
-        self.assertEqual(second.hash, "bbbbbb")
+        self.assertEqual(sha1.call_count, 3)
+        self.assertEqual(second.hash, "bbbbbb" + "0" * 34)
         self.assertEqual(second.parents, (first.hash,))
         self.assertEqual(repository.head_hash, second.hash)
         self.assertEqual(repository.search_keyword("first"), [first])
         self.assertEqual(repository.search_keyword("second"), [second])
+
+    def test_full_hash_storage_and_unique_prefix_lookup(self) -> None:
+        repository = Repository()
+        repository.initialize("Alice")
+        self.assertEqual(repository.abbreviated_hashes(), {})
+        first_hash = "abcdef0" + "1" * 33
+        second_hash = "abcdef1" + "2" * 33
+        with patch("minigit.repository.hashlib.sha1") as sha1:
+            sha1.return_value.hexdigest.side_effect = [first_hash, second_hash]
+            first = repository.create_commit("first")
+            self.assertEqual(repository.abbreviated_hashes(), {first_hash: "abcdef"})
+            repository.create_branch("feature")
+            second = repository.create_commit("second")
+        # 앞부분만 같다면 재계산 없이 서로 다른 전체 해시로 저장합니다.
+        self.assertEqual(sha1.call_count, 2)
+        self.assertEqual(set(repository.commits), {first_hash, second_hash})
+        self.assertEqual(repository.branches, {"main": second_hash, "feature": first_hash})
+        self.assertEqual(repository.head_hash, second_hash)
+        self.assertEqual(second.parents, (first_hash,))
+        self.assertEqual(repository.index.keyword_index["first"], {first_hash})
+        self.assertEqual(repository.index.author_index["alice"], {first_hash, second_hash})
+        self.assertEqual(repository.abbreviated_hashes(), {
+            first_hash: "abcdef0", second_hash: "abcdef1",
+        })
+        for reference in (first_hash, "abcdef0", first_hash[:-1]):
+            self.assertIs(repository.get_commit(reference), first)
+        self.assertEqual(repository.get_path("abcdef0", "abcdef1"), [first_hash, second_hash])
+        self.assertEqual(repository.get_path("abcdef1", second_hash), [second_hash])
+        self.assertEqual(repository.get_ancestors("abcdef1"), [first])
+        with self.assertRaisesRegex(RepositoryError, "Ambiguous commit: abcdef"):
+            repository.get_commit("abcdef")
+        for reference in ("", "ffffff", first_hash + "0"):
+            with self.assertRaisesRegex(RepositoryError, "Unknown commit:"):
+                repository.get_commit(reference)
+
+    def test_abbreviations_expand_as_far_as_needed(self) -> None:
+        repository = Repository()
+        repository.initialize("Alice")
+        hashes = ["a" * 39 + "0", "a" * 39 + "1", "a" * 38 + "20", "b" * 40]
+        with patch("minigit.repository.hashlib.sha1") as sha1:
+            sha1.return_value.hexdigest.side_effect = hashes
+            for value in hashes:
+                repository.create_commit(value)
+        abbreviated = repository.abbreviated_hashes()
+        self.assertEqual(abbreviated, {
+            hashes[0]: hashes[0], hashes[1]: hashes[1],
+            hashes[2]: hashes[2][:39], hashes[3]: "bbbbbb",
+        })
+        for full_hash, prefix in abbreviated.items():
+            self.assertEqual(repository.get_commit(prefix).hash, full_hash)
 
     def test_commands_require_initialization(self) -> None:
         repository = Repository()
@@ -70,7 +121,7 @@ class RepositoryTests(unittest.TestCase):
         with self.assertRaisesRegex(RepositoryError, "No commits yet"):
             repository.create_branch("feature")
 
-    def test_commit_is_immutable_and_has_six_digit_sha1_hash(self) -> None:
+    def test_commit_is_immutable_and_has_full_sha1_hash(self) -> None:
         repository = Repository(
             clock=lambda: datetime(2024, 1, 15, 9, 0, 0)
         )
@@ -78,7 +129,7 @@ class RepositoryTests(unittest.TestCase):
 
         commit = repository.create_commit("Initial commit")
 
-        self.assertIsNotNone(re.fullmatch(r"[0-9a-f]{6}", commit.hash))
+        self.assertIsNotNone(re.fullmatch(r"[0-9a-f]{40}", commit.hash))
         self.assertEqual(commit.parents, ())
         with self.assertRaises(FrozenInstanceError):
             commit.message = "changed"  # type: ignore[misc]
