@@ -56,12 +56,12 @@ class InvertedIndex:
                 return set()
             candidates.append(candidate)
 
-        smallest = min(candidates, key=len)
+        smallest = min(candidates, key=len) # 가장 적은 수의 해시를 가진 후보를 선택
         matches = set(smallest)
         for candidate in candidates:
             if candidate is smallest:
                 continue
-            matches.intersection_update(candidate)
+            matches.intersection_update(candidate) # 교집합
             if not matches:
                 break
 

@@ -8,7 +8,7 @@ from typing import Any, TypeVar
 from minigit.models import Commit
 
 T = TypeVar("T")
-KeyFunction = Callable[[T], Any]
+KeyFunction = Callable[[T], Any] # T타입의 값을 받아서 비교가능한 값을 반환하는 함수
 
 
 def identity(value: T) -> T:

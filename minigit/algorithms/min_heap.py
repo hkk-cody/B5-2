@@ -19,9 +19,7 @@ def heap_push(heap: list[Commit], commit: Commit) -> None:
 
     while child_index > 0:
         parent_index = (child_index - 1) // 2
-        if commit_order_key(heap[parent_index]) <= commit_order_key(
-            heap[child_index]
-        ):
+        if commit_order_key(heap[parent_index]) <= commit_order_key(heap[child_index]):
             break
 
         heap[parent_index], heap[child_index] = heap[child_index], heap[parent_index]
@@ -45,25 +43,20 @@ def heap_pop(heap: list[Commit]) -> Commit:
         smallest_index = parent_index
 
         if (
-            left_index < len(heap)
-            and commit_order_key(heap[left_index])
-            < commit_order_key(heap[smallest_index])
+            left_index < len(heap) and
+            commit_order_key(heap[left_index]) < commit_order_key(heap[smallest_index])
         ):
             smallest_index = left_index
         if (
-            right_index < len(heap)
-            and commit_order_key(heap[right_index])
-            < commit_order_key(heap[smallest_index])
+            right_index < len(heap) and
+            commit_order_key(heap[right_index]) < commit_order_key(heap[smallest_index])
         ):
             smallest_index = right_index
 
         if smallest_index == parent_index:
             break
 
-        heap[parent_index], heap[smallest_index] = (
-            heap[smallest_index],
-            heap[parent_index],
-        )
+        heap[parent_index], heap[smallest_index] = heap[smallest_index], heap[parent_index]
         parent_index = smallest_index
 
     return first

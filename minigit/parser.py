@@ -22,6 +22,17 @@ class CommandProcessor:
 
     def __init__(self, repository: Repository | None = None) -> None:
         self.repository = repository if repository is not None else Repository()
+        # 디스패치 테이블 패턴 : 함수를 값으로 저장하여 조건문 없이 빠르게 분배함
+        self._dispatch_table = {
+            "init": self._handle_init,
+            "branch": self._handle_branch,
+            "switch": self._handle_switch,
+            "commit": self._handle_commit,
+            "log": self._handle_log,
+            "path": self._handle_path,
+            "ancestors": self._handle_ancestors,
+            "search": self._handle_search,
+        }
 
     def execute(self, line: str) -> CommandResult:
         """입력 한 줄을 실행합니다. 사용자 입력 오류는 결과 문자열로 돌려줍니다."""
@@ -51,25 +62,11 @@ class CommandProcessor:
 
     def _dispatch(self, command: str, args: list[str]) -> CommandResult:
         """검증된 명령 이름을 실제 기능별 처리 메서드로 분배합니다."""
+        handler = self._dispatch_table.get(command)
+        if handler is None:
+            return CommandResult(f"Unknown command: {command}")
 
-        if command == "init":
-            return self._handle_init(args)
-        if command == "branch":
-            return self._handle_branch(args)
-        if command == "switch":
-            return self._handle_switch(args)
-        if command == "commit":
-            return self._handle_commit(args)
-        if command == "log":
-            return self._handle_log(args)
-        if command == "path":
-            return self._handle_path(args)
-        if command == "ancestors":
-            return self._handle_ancestors(args)
-        if command == "search":
-            return self._handle_search(args)
-
-        return CommandResult(f"Unknown command: {command}")
+        return handler(args)
 
     @staticmethod
     def _has_one_nonempty_arg(args: list[str]) -> bool:

@@ -56,14 +56,10 @@ def find_shortest_path(
         for neighbor_hash in graph[current_hash]:
             # 시작점에서 한 칸 앞으로 가면서도, 끝점까지의 남은 거리를 더했을 때
             # 전체 최단 거리와 같아야 최단 경로 위의 이웃입니다.
-            if distance_from_start.get(neighbor_hash) != len(path):
+            if distance_from_start.get(neighbor_hash) != len(path) or \
+                    distance_from_start[neighbor_hash] + distance_to_end[neighbor_hash] != shortest_distance:
                 continue
-            if (
-                distance_from_start[neighbor_hash]
-                + distance_to_end[neighbor_hash]
-                != shortest_distance
-            ):
-                continue
+
             if next_hash is None or neighbor_hash < next_hash:
                 next_hash = neighbor_hash
 
@@ -81,7 +77,7 @@ def _bfs_distances(graph: Mapping[str, set[str]], start_hash: str) -> dict[str, 
     """시작 커밋에서 도달 가능한 각 커밋까지의 최단 거리를 계산합니다."""
 
     distances = {start_hash: 0}
-    queue = deque([start_hash])
+    queue = deque([start_hash]) # 문자열이 글자가 쪼개서 들어가는걸 방지하기 위함
 
     while queue:
         current_hash = queue.popleft()

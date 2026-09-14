@@ -20,8 +20,8 @@ def topological_sort(commits: Mapping[str, Commit]) -> list[Commit]:
     ``ValueError``를 발생시킵니다.
     """
 
-    indegree: dict[str, int] = {}
-    children: dict[str, set[str]] = {}
+    indegree: dict[str, int] = {} # 내 부모 수 (아직 기다려야 하는 부모 수)
+    children: dict[str, set[str]] = {} # 내 자식들 (부모가 출력되고 나면 어떤 자식들의 indegree를 줄여야 할지 추적하기 위함)
 
     for commit_hash in commits:
         indegree[commit_hash] = 0
@@ -53,6 +53,7 @@ def topological_sort(commits: Mapping[str, Commit]) -> list[Commit]:
                 heap_push(ready, commits[child_hash])
 
     if len(result) != len(commits):
+        # indegree가 0이 되지 못한 커밋들이 존재 = 순환 존재
         raise ValueError("Commit graph contains a cycle")
 
     return result
