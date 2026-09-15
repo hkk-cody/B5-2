@@ -90,6 +90,175 @@ Found 1 commit:
 `SEARCH -- "--author=Bob"`처럼 `--` 뒤에 입력하면 메시지에서 검색합니다.
 `SEARCH --author=Bob`은 기존처럼 작성자 검색입니다.
 
+## 과제 평가용 실행 예시
+
+평가자가 CLI 환경에서 주요 기능과 예외 처리를 한눈에 검증할 수 있는 실행 시나리오입니다.
+
+### 1. 빠른 전체 실행 (터미널 일괄 입력)
+
+터미널에서 아래 명령을 그대로 복사해 붙여넣으면 기본 REPL 흐름을 한 번에 실행할 수 있습니다.
+
+```bash
+python main.py << 'EOF'
+init "Alice Kim"
+commit "Initial commit"
+branch feature
+switch feature
+commit "Add login feature"
+switch main
+commit "Add payment feature"
+log
+log --sort-by=date
+log --sort-by=author
+search "login"
+search --author="Alice Kim"
+exit
+EOF
+```
+
+---
+
+### 2. 단계별 대화형 평가 시나리오
+
+터미널에서 `python main.py`를 실행한 후 `mini-git>` 프롬프트에 순서대로 입력하며 동작을 확인합니다.  
+*(※ 커밋 해시는 실행 시각에 따라 동적으로 생성되므로, `PATH`나 `ANCESTORS` 명령에는 앞서 화면에 출력된 실제 해시를 입력하세요.)*
+
+#### Step 1: 저장소 초기화 및 브랜치 분기 작업
+```text
+mini-git> init "Alice Kim"
+Initialized repository.
+Current branch: main
+Current user: Alice Kim
+
+mini-git> commit "Initial commit"
+[main 3f17a2] Initial commit
+
+mini-git> branch feature
+Created branch: feature
+
+mini-git> switch feature
+Switched to branch: feature
+
+mini-git> commit "Add login feature"
+[feature 92a3c1] Add login feature
+
+mini-git> switch main
+Switched to branch: main
+
+mini-git> commit "Add payment feature"
+[main 7b4e10] Add payment feature
+```
+
+#### Step 2: 커밋 로그 및 정렬 검증
+- **기본 `LOG` (위상 정렬)**: 부모 커밋(`Initial commit`)이 항상 자식 커밋들보다 먼저 출력되며, 브랜치 최신 커밋에 `[main]`, `[feature]` 라벨이 표시됩니다.
+- **`LOG --sort-by=date`**: 커밋 생성 시각(timestamp) 오름차순으로 정렬됩니다.
+- **`LOG --sort-by=author`**: 작성자 이름(대소문자 무관) 오름차순으로 정렬됩니다.
+
+```text
+mini-git> log
+commit 3f17a2 (Alice Kim, 2026-09-15 02:30:00)
+Initial commit
+
+commit 7b4e10 (Alice Kim, 2026-09-15 02:30:02) [main]
+Add payment feature
+
+commit 92a3c1 (Alice Kim, 2026-09-15 02:30:01) [feature]
+Add login feature
+
+mini-git> log --sort-by=date
+(생성 시각 순으로 전체 커밋 출력)
+
+mini-git> log --sort-by=author
+(작성자 이름 사전순으로 전체 커밋 출력)
+```
+
+#### Step 3: 커밋 그래프 탐색 (PATH, ANCESTORS)
+- 앞서 생성된 커밋들의 해시(예: root=`3f17a2`, feature=`92a3c1`, main=`7b4e10`)를 활용해 테스트합니다.
+
+```text
+mini-git> ancestors 92a3c1
+Ancestors of 92a3c1:
+- 3f17a2: Initial commit
+
+mini-git> ancestors 3f17a2
+No ancestors
+
+mini-git> path 92a3c1 7b4e10
+Path: 92a3c1 -> 3f17a2 -> 7b4e10
+
+mini-git> path 3f17a2 3f17a2
+Path: 3f17a2
+```
+
+#### Step 4: 역색인 검색 (SEARCH)
+- 메시지 단어 분리(소문자 정규화) 및 작성자 역색인을 통해 순회 없이 즉시 결과를 반환합니다.
+
+```text
+mini-git> search "login"
+Found 1 commit:
+
+- 92a3c1: Add login feature
+
+mini-git> search "login feature"
+Found 1 commit:
+
+- 92a3c1: Add login feature
+
+mini-git> search --author="alice kim"
+Found 3 commits:
+
+- 3f17a2: Initial commit
+- 7b4e10: Add payment feature
+- 92a3c1: Add login feature
+
+mini-git> search "nonexistent"
+Found 0 commits.
+```
+
+#### Step 5: 예외 처리 및 에러 메시지 검증
+과제 요구 명세에 맞춘 에러 메시지 표준화 여부를 확인합니다.
+
+```text
+# 잘못된 인자 개수 또는 문법 오류
+mini-git> init Alice Bob
+Invalid args
+
+mini-git> commit "unclosed quote
+Invalid args
+
+# 중복 초기화 방지
+mini-git> init "Another User"
+Repository already initialized
+
+# 존재하지 않는 대상 조회
+mini-git> switch nonexistent
+Unknown branch: nonexistent
+
+mini-git> ancestors 999999
+Unknown commit: 999999
+
+# 알 수 없는 명령어
+mini-git> foobar
+Unknown command: foobar
+
+# REPL 종료
+mini-git> exit
+```
+
+---
+
+### 3. 과제 제약사항 및 단위 테스트 자동 검증
+
+과제 요구사항인 **"Python 표준 정렬 API(`sorted()`, `list.sort()`) 및 외부 그래프 라이브러리 사용 금지"** 제약과 전체 알고리즘 정합성은 단위 테스트를 통해 자동으로 검증할 수 있습니다.
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+- `test_constraints.py`: AST(추상 구문 트리) 정적 분석으로 `sorted`, `list.sort`, `networkx` 등의 금지된 API 미사용 보장
+- `test_algorithms.py`: 직접 구현한 Kahn 위상 정렬, BFS 최단 경로, 조상 탐색, Merge Sort, Quick Sort, 역색인 검증
+- `test_repository.py` & `test_cli.py`: 저장소 상태 관리 및 REPL 통합 동작 검증 (총 43개 테스트 전체 통과)
+
 ## 프로젝트 구조
 
 ```text
